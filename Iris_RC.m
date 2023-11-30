@@ -1,25 +1,29 @@
-%% Iris Dataset Classification-Signal Generator
+%% Iris Dataset Classification_Signal Generator
 clear;
 clc;
 rng(100);
 % -------------------------Parameters---------------------------
 num_sample = 150;
 num_char = 4;
-ML = 16;
-N = 4;
+ML = 4;
+N = 16;
+% memristor
 Vmax = 5;
 Vmin = 2;
 Vreset = -2;
+% pulse
 interval = 0.01;
 column = 20;
 % --------------------------Dataset-----------------------------
+% initialize dataset
 load('iris_dataset.mat');
-rowrank = randperm(size(iris_dataset, 1));   
+rowrank = randperm(size(iris_dataset, 1));
 dataset_scuffle = iris_dataset(rowrank,:);
 Data = dataset_scuffle(:,1:4);
 Label = dataset_scuffle(:,5:7);
 save('Label.mat');
 % ----------------------Mask Processing-------------------------
+% generate mask matrix
 Mask = randi([0,1],num_char,ML,N) * 2 - 1;
 input_mask = [];
 for i = 1:N
@@ -32,12 +36,12 @@ UL = max(max(input_mask));
 DL = min(min(input_mask));
 input_norm = (input_mask-DL)/(UL-DL)*(Vmax - Vmin)+Vmin;
 % ------------------Input Signal Generator----------------------
-% Add RESET pulses
+% add RESET pulses
 temp_1 = reshape(input_norm',ML,[]);
 reset = Vreset*ones(1,num_sample*N);
 temp_2 = [reset;temp_1];
 input_reshape = reshape(temp_2,[],1);
-% Holding
+% generate final input signal
 input_pulse = [];
 zero_pulse = [0];
 num_zero = 2;
@@ -50,7 +54,7 @@ for i = 1:size(input_reshape,1)
         input_pulse = [input_pulse;input_reshape(i)];
     end
 end
-% Rearranging the final input signal
+% rearrange
 time = colon(0,interval,interval*((size(input_pulse,1))/column-1))';
 input_pulse = reshape(input_pulse,size(input_pulse,1)/column,column);
 final_input = [];
@@ -58,30 +62,29 @@ for k = 1:column
     a = [time,input_pulse(:,k)];
     final_input = [final_input,a];
 end
-%% Iris Dataset Classification-Train and Test
+%% Iris Dataset Classification_Train and Test
 clear;
 clc;
 % -------------------------Parameters---------------------------
-ML = 64;
-N = 1;
-% ------------------------Preprocessing---------------------------
-% Import data
+ML = 4;
+N = 16;
+% ------------------------Preprocessing-------------------------
+% import data
 load('memristor_output.mat')
 output = flip(memristor_output,2);
-% Delete RESET current
+% delete RESET current
 matrix_1 = reshape(output,[],1);
 matrix_2 = reshape(matrix_1,ML+1,[]);
 matrix_3 = matrix_2(2:end,:);
 matrix_4 = reshape(matrix_3,[],N)';
-% Initialize output stream
+% initialize output and label
 train_state = matrix_4(:,1:ML*120);
 test_state = matrix_4(:,ML*120+1:end);
-% Generate corresponding label
 load('Label.mat')
 label = Label';
 train_label = label(:,1:120);
 test_label = label(:,120+1:end);
-% ------------------------Train---------------------------
+% --------------------------Train-----------------------------
 % states collection
 states = [];
 for i = 1:120
@@ -91,7 +94,7 @@ end
 X = [ones(1,120); states];
 % linear regression
 Wout = train_label*pinv(X);
-% ------------------------Test---------------------------
+% ---------------------------Test-----------------------------
 % states collection
 states = [];
 for i = 1:30
@@ -107,6 +110,7 @@ out = Wout*X;
 Out = index;
 [Lb,index] = max(test_label,[],1);
 Lb = index;
+% accuracy
 j=0;
 for i = 1:size(Out,2)
     if Out(i) == Lb(i)
@@ -115,6 +119,7 @@ for i = 1:size(Out,2)
 end
 acc = j/size(Out,2);
 % ----------------------------Plot-----------------------------
+% Figure 1
 figure(1);
 plot(Lb, '-k*', 'linewidth', 2);
 hold on;
@@ -130,7 +135,7 @@ set(gca,'FontName', 'Arial', 'FontSize', 20);
 set(gca,'ytick',[1 2 3]);
 set(gca,'yticklabel',{'setosa' 'versicolor' 'virginica'});
 set(gcf, 'unit', 'normalized', 'position', [0.2, 0.2, 0.6, 0.35]);
-
+% Figure 2
 figure(2);
 matrix = [];
 for k = 1:3
